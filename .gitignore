@@ -1,3 +1,17 @@
-.venv/
+# macOS System Files
 .DS_Store
+
+# Python Cache & Compiled Files
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+
+# VS Code Workspace Settings
+.vscode/
+
+# Database Files (Critical for the telemetry pipeline)
+*.sqlite3
+*.db

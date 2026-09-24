@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hardware Telemetry</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; }
+        canvas { width: 100% !important; height: 500px !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Real-Time Hardware Telemetry</h2>
+        <canvas id="telemetryChart"></canvas>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('telemetryChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                { label: 'Potentiometer', borderColor: '#58a6ff', data: [], tension: 0.2 },
+                { label: 'Photoresistor', borderColor: '#3fb950', data: [], tension: 0.2 }
+            ]},
+            options: { 
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { min: 0, max: 1023, grid: { color: '#30363d' } }, x: { grid: { color: '#30363d' } } },
+                animation: { duration: 0 } // Disable animation for real-time performance
+            }
+        });
+
+        async function fetchTelemetry() {
+            try {
+                // Fetch the latest 20 readings from your local FastAPI server
+                const response = await fetch('http://127.0.0.1:8000/api/telemetry/latest?limit=20');
+                const json = await response.json();
+                
+                // The API returns newest-first; reverse it so time flows left-to-right
+                const data = json.data.reverse(); 
+
+                // Extract the data streams
+                chart.data.labels = data.map(row => {
+                    const date = new Date(row.timestamp);
+                    return `${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
+                });
+                chart.data.datasets[0].data = data.map(row => row.potentiometer);
+                chart.data.datasets[1].data = data.map(row => row.photoresistor);
+                
+                chart.update();
+            } catch (error) {
+                console.error('Error fetching telemetry:', error);
+            }
+        }
+
+        // Poll the API every 1 second
+        setInterval(fetchTelemetry, 1000);
+        fetchTelemetry();
+    </script>
+</body>
+</html>
