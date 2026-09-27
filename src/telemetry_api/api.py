@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
+from .models import TelemetryResponse
 
 app = FastAPI(title="Hardware Telemetry API")
 
@@ -25,7 +26,7 @@ def get_db_connection():
 def read_root():
     return {"status": "online", "message": "Telemetry API is running."}
 
-@app.get("/api/telemetry/latest")
+@app.get("/api/telemetry/latest, response_model=TelemetryResponse")
 def get_latest_telemetry(limit: int = 10):
     """Fetches the most recent sensor readings."""
     try:

@@ -3,6 +3,8 @@ import time
 import sys
 import sqlite3
 from datetime import datetime
+from pydantic import ValidationError
+from src.telemetry_api.models import HardwarePayload
 
 PORT = "/dev/cu.usbmodem1201" 
 BAUD_RATE = 115200
@@ -39,17 +41,26 @@ def start_telemetry():
                 raw_data = board.readline().decode('utf-8').strip()
                 
                 if raw_data:
-                    pot_val, light_val = raw_data.split(',')
-                    timestamp = datetime.now().isoformat()
-                    
-                    # Insert data securely using tuple binding (?)
-                    cursor.execute(
-                        "INSERT INTO sensor_data (timestamp, potentiometer, photoresistor) VALUES (?, ?, ?)",
-                        (timestamp, int(pot_val), int(light_val))
-                    )
-                    db_conn.commit()
-                    
-                    print(f"[{timestamp}] Saved -> Pot: {pot_val} | Light: {light_val}")
+                    try:
+                        # 1. Attempt to split the string
+                        pot_val, light_val = raw_data.split(',')
+                        
+                        # 2. Force through Pydantic (Throws ValidationError if not 0-1023 ints)
+                        payload = HardwarePayload(potentiometer=int(pot_val), photoresistor=int(light_val))
+                        
+                        # 3. Save to database only if validation succeeds
+                        timestamp = datetime.now().isoformat()
+                        cursor.execute(
+                            "INSERT INTO sensor_data (timestamp, potentiometer, photoresistor) VALUES (?, ?, ?)",
+                            (timestamp, payload.potentiometer, payload.photoresistor)
+                        )
+                        db_conn.commit()
+                        print(f"[{timestamp}] Saved -> Pot: {payload.potentiometer} | Light: {payload.photoresistor}")
+                        
+                    except (ValueError, ValidationError) as e:
+                        # Silently drop the bad frame to keep the pipeline alive
+                        print(f"Dropped corrupted hardware frame: {raw_data}")
+                        pass
 
     except serial.SerialException:
         print(f"Error: Could not connect to {PORT}.")
